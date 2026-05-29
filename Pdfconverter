@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocConvert - Word to PDF</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 font-sans">
+
+  <!-- Navbar -->
+  <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-file-pdf text-red-600 text-3xl"></i>
+        <h1 class="text-2xl font-bold text-gray-800">DocConvert</h1>
+      </div>
+      <div class="hidden md:flex gap-8 text-gray-600">
+        <a href="#" class="hover:text-gray-900">Home</a>
+        <a href="#" class="hover:text-gray-900">Features</a>
+        <a href="#" class="hover:text-gray-900">Pricing</a>
+        <a href="#" class="hover:text-gray-900">Blog</a>
+      </div>
+      <button class="bg-red-600 text-white px-6 py-2 rounded-xl hover:bg-red-700 transition">
+        Sign Up Free
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero + Upload -->
+  <div class="max-w-4xl mx-auto px-6 pt-16 pb-20 text-center">
+    <h1 class="text-5xl font-bold text-gray-900 mb-4">
+      Convert Word to PDF <span class="text-red-600">Instantly</span>
+    </h1>
+    <p class="text-xl text-gray-600 mb-10">
+      Fast, secure, and completely free. No registration required.
+    </p>
+
+    <!-- Upload Area -->
+    <div id="upload-area" 
+         class="border-2 border-dashed border-gray-300 rounded-3xl p-12 hover:border-red-400 hover:bg-red-50 transition-all cursor-pointer">
+      <div class="flex flex-col items-center">
+        <i class="fa-solid fa-cloud-arrow-up text-6xl text-gray-400 mb-4"></i>
+        <p class="text-lg font-medium text-gray-700">Drop your .doc or .docx file here</p>
+        <p class="text-sm text-gray-500 mt-2">or</p>
+        <button id="select-file" 
+                class="mt-4 bg-red-600 text-white px-8 py-3 rounded-2xl hover:bg-red-700 transition flex items-center gap-2">
+          <i class="fa-solid fa-folder-open"></i>
+          Select File
+        </button>
+        <input type="file" id="file-input" accept=".doc,.docx" class="hidden">
+        <p class="text-xs text-gray-500 mt-6">Maximum file size: 50MB</p>
+      </div>
+    </div>
+
+    <!-- Progress (hidden initially) -->
+    <div id="progress-section" class="hidden mt-8">
+      <div class="bg-white rounded-2xl p-6 shadow">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-file-word text-blue-600 text-2xl"></i>
+            <div>
+              <p id="file-name" class="font-medium">document.docx</p>
+              <p id="file-size" class="text-sm text-gray-500">2.4 MB</p>
+            </div>
+          </div>
+          <button onclick="cancelConversion()" class="text-red-500 hover:text-red-700">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        
+        <div class="w-full bg-gray-200 rounded-full h-2.5">
+          <div id="progress-bar" class="bg-red-600 h-2.5 rounded-full w-0 transition-all duration-300"></div>
+        </div>
+        
+        <p id="progress-text" class="text-center text-sm text-gray-600 mt-2">Converting... 0%</p>
+      </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success-section" class="hidden mt-8">
+      <div class="bg-green-50 border border-green-200 rounded-3xl p-8 text-center">
+        <i class="fa-solid fa-circle-check text-6xl text-green-500 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-800">Conversion Complete!</h3>
+        <button onclick="downloadPDF()" 
+                class="mt-6 bg-green-600 text-white px-10 py-4 rounded-2xl hover:bg-green-700 flex items-center gap-3 mx-auto">
+          <i class="fa-solid fa-download"></i>
+          Download PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const progressSection = document.getElementById('progress-section');
+    const successSection = document.getElementById('success-section');
+
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    document.getElementById('select-file').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', handleFile);
+
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('border-red-500', 'bg-red-50');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('border-red-500', 'bg-red-50');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('border-red-500', 'bg-red-50');
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      if (!file) return;
+      
+      if (!file.name.endsWith('.doc') && !file.name.endsWith('.docx')) {
+        alert("Please upload a Word document (.doc or .docx)");
+        return;
+      }
+
+      document.getElementById('file-name').textContent = file.name;
+      document.getElementById('file-size').textContent = (file.size / (1024*1024)).toFixed(1) + " MB";
+
+      uploadArea.classList.add('hidden');
+      progressSection.classList.remove('hidden');
+
+      // Simulate conversion
+      let progress = 0;
+      const progressBar = document.getElementById('progress-bar');
+      const progressText = document.getElementById('progress-text');
+
+      const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 100) progress = 100;
+
+        progressBar.style.width = progress + '%';
+        progressText.textContent = `Converting... ${Math.floor(progress)}%`;
+
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            progressSection.classList.add('hidden');
+            successSection.classList.remove('hidden');
+          }, 600);
+        }
+      }, 200);
+    }
+
+    function cancelConversion() {
+      location.reload();
+    }
+
+    function downloadPDF() {
+      alert("✅ In a real website, your PDF would download here!\n\nThis is a demo version.");
+      // You can later connect this to actual backend (like using pdf-lib or server-side conversion)
+    }
+  </script>
+</body>
+</html>
