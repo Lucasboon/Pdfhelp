@@ -1,40 +1,141 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DocConvert - Word to PDF</title>
+  <title>My Word to PDF Converter</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 </head>
 <body class="bg-gray-50 font-sans">
-
-  <!-- Navbar -->
-  <nav class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <i class="fa-solid fa-file-pdf text-red-600 text-3xl"></i>
-        <h1 class="text-2xl font-bold text-gray-800">DocConvert</h1>
-      </div>
-      <div class="hidden md:flex gap-8 text-gray-600">
-        <a href="#" class="hover:text-gray-900">Home</a>
-        <a href="#" class="hover:text-gray-900">Features</a>
-        <a href="#" class="hover:text-gray-900">Pricing</a>
-        <a href="#" class="hover:text-gray-900">Blog</a>
-      </div>
-      <button class="bg-red-600 text-white px-6 py-2 rounded-xl hover:bg-red-700 transition">
-        Sign Up Free
-      </button>
+  <div class="max-w-4xl mx-auto px-6 py-12">
+    <div class="text-center mb-10">
+      <h1 class="text-5xl font-bold text-gray-900 mb-3">Word to PDF</h1>
+      <p class="text-gray-600">Fast • Secure • Free to use</p>
     </div>
-  </nav>
 
-  <!-- Hero + Upload -->
-  <div class="max-w-4xl mx-auto px-6 pt-16 pb-20 text-center">
-    <h1 class="text-5xl font-bold text-gray-900 mb-4">
-      Convert Word to PDF <span class="text-red-600">Instantly</span>
-    </h1>
-    <p class="text-xl text-gray-600 mb-10">
-      Fast, secure, and completely free. No registration required.
+    <!-- Upload Area -->
+    <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-3xl p-16 text-center hover:border-red-400 transition cursor-pointer">
+      <i class="fa-solid fa-file-word text-7xl text-blue-500 mb-6"></i>
+      <p class="text-2xl font-medium text-gray-700">Drop your Word document here</p>
+      <p class="text-gray-500 mt-2">or</p>
+      <button onclick="document.getElementById('file-input').click()" 
+              class="mt-6 bg-red-600 hover:bg-red-700 text-white px-8 py-3.5 rounded-2xl text-lg">
+        Select .docx File
+      </button>
+      <input type="file" id="file-input" accept=".doc,.docx" class="hidden">
+      <p class="text-xs text-gray-500 mt-8">Max 50MB • Files are deleted after conversion</p>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress" class="hidden bg-white rounded-3xl shadow p-8">
+      <div class="flex items-center gap-4">
+        <i class="fa-solid fa-spinner fa-spin text-3xl text-red-600"></i>
+        <div class="flex-1">
+          <p id="filename" class="font-medium"></p>
+          <div class="w-full bg-gray-200 h-2.5 rounded-full mt-3">
+            <div id="progress-bar" class="bg-red-600 h-2.5 rounded-full w-0 transition-all duration-500"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success -->
+    <div id="success" class="hidden text-center bg-green-50 border border-green-200 rounded-3xl p-10">
+      <i class="fa-solid fa-circle-check text-6xl text-green-500 mb-4"></i>
+      <h3 class="text-2xl font-semibold">Conversion Successful!</h3>
+      <a id="download-btn" 
+         class="mt-6 inline-flex items-center gap-3 bg-green-600 text-white px-10 py-4 rounded-2xl text-lg hover:bg-green-700">
+        <i class="fa-solid fa-download"></i> Download PDF
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "YOUR_CLOUDCONVERT_API_KEY_HERE";   // ← Put your key here
+
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById('upload-area').classList.add('hidden');
+      document.getElementById('progress').classList.remove('hidden');
+      document.getElementById('filename').textContent = file.name;
+
+      try {
+        // Create Job
+        const jobResponse = await fetch('https://api.cloudconvert.com/v2/jobs', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "tasks": {
+              "import-1": {
+                "operation": "import/upload"
+              },
+              "convert-1": {
+                "operation": "convert",
+                "input": "import-1",
+                "output_format": "pdf"
+              },
+              "export-1": {
+                "operation": "export/url",
+                "input": "convert-1"
+              }
+            }
+          })
+        });
+
+        const job = await jobResponse.json();
+        const jobId = job.data.id;
+
+        // Upload file
+        const formData = new FormData();
+        formData.append('file', file);
+
+        await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}/import-1`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${API_KEY}` },
+          body: formData
+        });
+
+        // Wait for completion
+        let resultUrl = null;
+        for (let i = 0; i < 25; i++) {
+          await new Promise(r => setTimeout(r, 1200));
+          
+          const statusRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}`, {
+            headers: { 'Authorization': `Bearer ${API_KEY}` }
+          });
+          const status = await statusRes.json();
+
+          if (status.data.status === "finished") {
+            resultUrl = status.data.tasks["export-1"].result.files[0].url;
+            break;
+          }
+        }
+
+        if (resultUrl) {
+          document.getElementById('progress').classList.add('hidden');
+          document.getElementById('success').classList.remove('hidden');
+          
+          const downloadBtn = document.getElementById('download-btn');
+          downloadBtn.href = resultUrl;
+          downloadBtn.download = file.name.replace(/\.\w+$/, '.pdf');
+        } else {
+          alert("Conversion timed out. Please try a smaller file.");
+        }
+
+      } catch (err) {
+        alert("Something went wrong. Make sure your API key is correct.\n\n" + err.message);
+        location.reload();
+      }
+    });
+  </script>
+</body>
+</html>      Fast, secure, and completely free. No registration required.
     </p>
 
     <!-- Upload Area -->
